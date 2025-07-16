@@ -9,7 +9,7 @@
 
 using namespace app::msgpack;
 
-constexpr bool ALL_TEST = true;
+constexpr bool ALL_TEST = false;
 constexpr bool NIL_TEST = false;
 constexpr bool BOOL_TEST = false;
 constexpr bool INT8_TEST = false;
@@ -21,6 +21,7 @@ constexpr bool STR_TEST = false;
 constexpr bool BIN_TEST = false;
 constexpr bool ARR_TEST = false;
 constexpr bool MAP_TEST = false;
+constexpr bool CUSTOM_TEST = true;
 
 inline constexpr bool is_equal(float v1, float v2)
 {
@@ -32,6 +33,106 @@ inline constexpr bool is_equal(double v1, double v2)
 {
     constexpr double compare_float_epsilon = 1e-9;
     return std::abs(v1 - v2) <= std::max(std::abs(v1), std::abs(v2)) * compare_float_epsilon;
+}
+
+struct ObjectWithPack {
+    int i = 0;
+    std::string str;
+
+    template<typename T>
+    void pack(T& p)
+    {
+        p(i, str);
+    }
+
+    bool operator==(const ObjectWithPack& o) const
+    {
+        return i == o.i && str == o.str;
+    }
+};
+
+struct ObjectWithPackUnPack {
+    int i = 0;
+    std::string str;
+
+    template<typename T>
+    void pack(T& p) const
+    {
+        p(i, str);
+    }
+
+    template<typename T>
+    void unpack(T& p)
+    {
+        p(i, str);
+    }
+
+    bool operator==(const ObjectWithPackUnPack& o) const
+    {
+        return i == o.i && str == o.str;
+    }
+};
+
+struct ObjectWithLowLevel {
+    int i = 0;
+    std::string str;
+
+    void pack(std::vector<uint8_t>& data) const
+    {
+        Packer::pack(data, i, str);
+    }
+
+    void unpack(Cursor& c)
+    {
+        UnPacker::unpack(c, i, str);
+    }
+
+    bool operator==(const ObjectWithPackUnPack& o) const
+    {
+        return i == o.i && str == o.str;
+    }
+};
+
+struct ObjectCustomPackUnPack {
+    int i = 0;
+    std::string str;
+
+    bool operator==(const ObjectCustomPackUnPack& o) const
+    {
+        return i == o.i && str == o.str;
+    }
+};
+
+template<typename T>
+void pack_custom(T& p, const ObjectCustomPackUnPack& o)
+{
+    p(o.i, o.str);
+}
+
+template<typename T>
+void unpack_custom(T& p, ObjectCustomPackUnPack& o)
+{
+    p(o.i, o.str);
+}
+
+struct ObjectCustomLowLevel {
+    int i = 0;
+    std::string str;
+
+    bool operator==(const ObjectCustomLowLevel& o) const
+    {
+        return i == o.i && str == o.str;
+    }
+};
+
+void pack_custom(std::vector<uint8_t>& data, const ObjectCustomLowLevel& o)
+{
+    Packer::pack(data, o.i, o.str);
+}
+
+bool unpack_custom(Cursor& c, ObjectCustomLowLevel& o)
+{
+    return UnPacker::unpack(c, o.i, o.str);
 }
 
 int main(int argc, char* argv[])
@@ -325,5 +426,41 @@ int main(int argc, char* argv[])
         assert(v1_8 == v2_8);
         assert(v1_16 == v2_16);
         assert(v1_32 == v2_32);
+    }
+
+    // custom
+    if (ALL_TEST || CUSTOM_TEST) {
+        std::vector<uint8_t> data;
+
+        ObjectWithPack obj1_1;
+        obj1_1.i = 42;
+        obj1_1.str = "42";
+
+        ObjectWithPackUnPack obj1_2;
+        obj1_2.i = 42;
+        obj1_2.str = "42";
+
+        ObjectCustomPackUnPack obj1_3;
+        obj1_3.i = 42;
+        obj1_3.str = "42";
+
+        ObjectCustomLowLevel obj1_4;
+        obj1_4.i = 42;
+        obj1_4.str = "42";
+
+        Packer::pack(data, obj1_1, obj1_2, obj1_3, obj1_4);
+
+        ObjectWithPack obj2_1;
+        ObjectWithPackUnPack obj2_2;
+        ObjectCustomPackUnPack obj2_3;
+        ObjectCustomLowLevel obj2_4;
+
+        bool ok = UnPacker::unpack(data, obj2_1, obj2_2, obj2_3, obj2_4);
+
+        assert(ok);
+        assert(obj1_1 == obj2_1);
+        assert(obj1_2 == obj2_2);
+        assert(obj1_3 == obj2_3);
+        assert(obj1_4 == obj2_4);
     }
 }
