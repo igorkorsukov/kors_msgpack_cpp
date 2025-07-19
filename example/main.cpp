@@ -5,10 +5,6 @@
 #include <set>
 #include <map>
 
-#include "msgpack.h"
-
-using namespace app::msgpack;
-
 constexpr bool ALL_TEST = false;
 constexpr bool NIL_TEST = false;
 constexpr bool BOOL_TEST = false;
@@ -22,6 +18,17 @@ constexpr bool BIN_TEST = false;
 constexpr bool ARR_TEST = false;
 constexpr bool MAP_TEST = false;
 constexpr bool CUSTOM_TEST = true;
+
+#include "msgpack/msgpack_forward.h"
+
+class ObjectCustomPackUnPack;
+
+void pack_custom(app::msgpack::Packer& p, const ObjectCustomPackUnPack& o);
+void unpack_custom(app::msgpack::UnPacker& p, ObjectCustomPackUnPack& o);
+
+#include "msgpack/msgpack.h"
+
+using namespace app::msgpack;
 
 inline constexpr bool is_equal(float v1, float v2)
 {
@@ -103,14 +110,12 @@ struct ObjectCustomPackUnPack {
     }
 };
 
-template<typename T>
-void pack_custom(T& p, const ObjectCustomPackUnPack& o)
+void pack_custom(app::msgpack::Packer& p, const ObjectCustomPackUnPack& o)
 {
     p(o.i, o.str);
 }
 
-template<typename T>
-void unpack_custom(T& p, ObjectCustomPackUnPack& o)
+void unpack_custom(app::msgpack::UnPacker& p, ObjectCustomPackUnPack& o)
 {
     p(o.i, o.str);
 }
